@@ -46,9 +46,15 @@ async function run() {
       if (userExists) {
         return res.send({ message: "user exists" });
       }
-
       const result = await userColl.insertOne(user);
       res.send(result);
+    });
+
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await userColl.findOne(query);
+      res.send({ role: user?.role || "user" });
     });
 
     // Make user an admin
