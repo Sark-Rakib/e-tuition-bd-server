@@ -29,8 +29,6 @@ async function run() {
     const userColl = db.collection("users");
     const paymentColl = db.collection("payments");
 
-    // jwt
-
     // user related api
 
     app.get("/users", async (req, res) => {
@@ -62,6 +60,15 @@ async function run() {
       );
       res.send(result);
     });
+    // remove admin
+    app.patch("/users/:id/remove-admin", async (req, res) => {
+      const { id } = req.params;
+      const result = await userColl.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role: "user" } }
+      );
+      res.send(result);
+    });
 
     // Tuition post (Student)
     app.post("/tuitions", async (req, res) => {
@@ -85,8 +92,6 @@ async function run() {
           .find({})
           .sort({ postedAt: -1 })
           .toArray();
-
-        // প্রতিটি tuition-এর সাথে student-এর role যাচাই করে পাঠান (optional, frontend-এও করা যায়)
         res.send(tuitions);
       } catch (error) {
         res.status(500).send({ message: "Error fetching tuitions" });
@@ -104,6 +109,63 @@ async function run() {
         return res.status(404).send({ message: "Tuition not found" });
 
       res.send(tuition);
+    });
+
+    // DELETE a tuition by ID
+    app.delete("/tuitions/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        if (!ObjectId.isValid(id)) {
+          return res
+            .status(400)
+            .send({ success: false, message: "Invalid ID" });
+        }
+        const result = await tuitionsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount === 0) {
+          return res
+            .status(404)
+            .send({ success: false, message: "Tutor not found" });
+        }
+        res.send({ success: true, deletedCount: result.deletedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Server error" });
+      }
+    });
+
+    // Approve
+    app.patch("/tuitions/:id/approve", async (req, res) => {
+      const { id } = req.params;
+      const { email } = req.body;
+      const user = await userColl.findOne({ email });
+      if (!user || user.role !== "admin")
+        return res.status(403).send({ success: false, message: "Admin only" });
+
+      const result = await tuitionsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "Approved", approvedAt: new Date() } }
+      );
+
+      res.send({ success: result.modifiedCount > 0 });
+    });
+
+    // Reject
+    app.patch("/tuitions/:id/reject", async (req, res) => {
+      const { id } = req.params;
+      const { email } = req.body;
+      const user = await userColl.findOne({ email });
+      if (!user || user.role !== "admin")
+        return res.status(403).send({ success: false, message: "Admin only" });
+
+      const result = await tuitionsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "Rejected" } }
+      );
+
+      res.send({ success: result.modifiedCount > 0 });
     });
 
     // Tutor postt
@@ -145,7 +207,7 @@ async function run() {
       }
     });
 
-    // সব tutor profiles (শুধু tutor role দের)
+    // tutor profiles
     app.get("/tutors", async (req, res) => {
       const tutors = await tutorsCollection
         .find()
@@ -154,291 +216,60 @@ async function run() {
       res.send(tutors);
     });
 
-    // // POST new tuition (Student)
-    // app.post("/tuitions", async (req, res) => {
-    //   const formData = req.body;
-
-    //   const newTuition = {
-    //     title: formData.title,
-    //     studentClass: formData.studentClass,
-    //     subject: formData.subject,
-    //     location: formData.location,
-    //     salary: Number(formData.salary), // স্ট্রিং থেকে নাম্বার
-    //     daysPerWeek: Number(formData.daysPerWeek),
-    //     tutoringTime: formData.tutoringTime,
-    //     studentGender: formData.studentGender || null,
-    //     tutorGender: formData.tutorGender,
-    //     requirements: formData.requirements,
-    //     contactPhone: formData.contactPhone,
-    //     studentName: formData.studentName,
-    //     studentEmail: formData.studentEmail,
-    //     studentPhoto: formData.studentPhoto,
-    //     status: "Approved", // এডমিন এপ্রুভ করবে
-    //     postedAt: new Date(),
-    //   };
-    //   const result = await tuitionsCollection.insertOne(newTuition);
-    //   res.send(result);
-    // });
-
-    // // get api
-
-    // app.get("/tuitions", async (req, res) => {
-    //   const tuitions = await tuitionsCollection
-    //     .find({ status: "Approved" })
-    //     .sort({ postedAt: -1 })
-    //     .toArray();
-    //   res.send({ success: true, data: tuitions });
-    // });
-
-    // GET all approved tuitions (Public)
-    // app.get("/tuitions", async (req, res) => {
-    //   const tuitions = await tuitionColl
-    //     .find({ status: "Approved" })
-    //     .sort({ postedAt: -1 })
-    //     .toArray(); // native driver
-    //   res.send({ success: true, data: tuitions });
-    // });
-
-    // // Admin: Approve/Reject
-    // app.patch("/tuitions/:id/approve", async (req, res) => {
-    //   const { id } = req.params;
-    //   const result = await tuitionColl.updateOne(
-    //     { _id: new ObjectId(id) },
-    //     { $set: { status: "Approved" } }
-    //   );
-    //   res.send({ success: true, message: "Tuition approved" });
-    // });
-
-    // app.get("/tuitions", async (req, res) => {
-    //   try {
-    //     const tuitions = await tuitionColl
-    //       .find({ status: "Approved" })
-    //       .sort({ postedAt: -1 })
-    //       .toArray();
-    //     res.send({ success: true, data: tuitions });
-    //   } catch (err) {
-    //     console.error(err);
-    //     res
-    //       .status(500)
-    //       .send({ success: false, message: "Failed to fetch tuitions" });
-    //   }
-    // });
-
-    // // Get Pending Tuitions (Admin view)
-    // app.get("/tuitions/pending", async (req, res) => {
-    //   try {
-    //     const tuitions = await tuitionColl
-    //       .find({ status: "Pending" })
-    //       .sort({ postedAt: -1 })
-    //       .toArray();
-    //     res.send({ success: true, data: tuitions });
-    //   } catch (err) {
-    //     res.status(500).send({
-    //       success: false,
-    //       message: "Failed to fetch pending tuitions",
-    //     });
-    //   }
-    // });
-
-    // // Approve Tuition (Admin)
-    // app.patch("/tuitions/:id/approve", async (req, res) => {
-    //   const { id } = req.params;
-    //   if (!ObjectId.isValid(id))
-    //     return res.status(400).send({ success: false, message: "Invalid ID" });
-
-    //   const result = await tuitionColl.updateOne(
-    //     { _id: new ObjectId(id) },
-    //     { $set: { status: "Approved" } }
-    //   );
-
-    //   if (result.modifiedCount === 0)
-    //     return res.status(404).send({
-    //       success: false,
-    //       message: "Tuition not found or already approved",
-    //     });
-
-    //   res.send({ success: true, message: "Tuition approved" });
-    // });
-
-    // // Reject Tuition (Admin)
-    // app.patch("/tuitions/:id/reject", async (req, res) => {
-    //   const { id } = req.params;
-    //   if (!ObjectId.isValid(id))
-    //     return res.status(400).send({ success: false, message: "Invalid ID" });
-
-    //   const result = await tuitionColl.updateOne(
-    //     { _id: new ObjectId(id) },
-    //     { $set: { status: "Rejected" } }
-    //   );
-
-    //   if (result.modifiedCount === 0)
-    //     return res.status(404).send({
-    //       success: false,
-    //       message: "Tuition not found or already rejected",
-    //     });
-
-    //   res.send({ success: true, message: "Tuition rejected" });
-    // });
-
-    // ১. সব এপ্রুভড তুইশন (পাবলিক)
-    // app.get("/tuitions", async (req, res) => {
-    //   try {
-    //     const tuitions = await tuitionsCollection
-    //       .find({ status: "Approved" })
-    //       .sort({ postedAt: -1 })
-    //       .toArray();
-    //     res.send({ success: true, data: tuitions });
-    //   } catch (err) {
-    //     console.error(err);
-    //     res
-    //       .status(500)
-    //       .send({ success: false, message: "Failed to fetch tuitions" });
-    //   }
-    // });
-
-    // // ২. এডমিনের জন্য পেন্ডিং তুইশন (শুধু এডমিন দেখতে পাবে)
-    // app.get("/tuitions/pending", verifyToken, async (req, res) => {
-    //   try {
-    //     // এডমিন চেক
-    //     const user = await usersCollection.findOne({ email: req.user.email });
-    //     if (user?.role !== "admin") {
-    //       return res
-    //         .status(403)
-    //         .send({ success: false, message: "Admin access required" });
-    //     }
-
-    //     const tuitions = await tuitionsCollection
-    //       .find({ status: "Pending" })
-    //       .sort({ postedAt: -1 })
-    //       .toArray();
-
-    //     res.send({ success: true, data: tuitions });
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ success: false, message: "Server error" });
-    //   }
-    // });
-
-    // // ৩. এপ্রুভ করা
-    // app.patch("/tuitions/:id/approve", verifyToken, async (req, res) => {
-    //   try {
-    //     const user = await usersCollection.findOne({ email: req.user.email });
-    //     if (user?.role !== "admin") {
-    //       return res
-    //         .status(403)
-    //         .send({ success: false, message: "Admin only" });
-    //     }
-
-    //     const result = await tuitionsCollection.updateOne(
-    //       { _id: new ObjectId(req.params.id) },
-    //       { $set: { status: "Approved", approvedAt: new Date() } }
-    //     );
-
-    //     if (result.modifiedCount === 0) {
-    //       return res.status(404).send({ success: false, message: "Not found" });
-    //     }
-
-    //     res.send({ success: true, message: "Tuition approved successfully" });
-    //   } catch (err) {
-    //     res.status(500).send({ success: false, message: "Error approving" });
-    //   }
-    // });
-
-    // // ৪. রিজেক্ট করা
-    // app.patch("/tuitions/:id/reject", verifyToken, async (req, res) => {
-    //   try {
-    //     const user = await usersCollection.findOne({ email: req.user.email });
-    //     if (user?.role !== "admin") {
-    //       return res
-    //         .status(403)
-    //         .send({ success: false, message: "Admin only" });
-    //     }
-
-    //     const result = await tuitionsCollection.updateOne(
-    //       { _id: new ObjectId(req.params.id) },
-    //       { $set: { status: "Rejected" } }
-    //     );
-
-    //     if (result.modifiedCount === 0) {
-    //       return res.status(404).send({ success: false, message: "Not found" });
-    //     }
-
-    //     res.send({ success: true, message: "Tuition rejected" });
-    //   } catch (err) {
-    //     res.status(500).send({ success: false, message: "Error rejecting" });
-    //   }
-    // });
-
-    app.get("/tuitions/pending", async (req, res) => {
+    // DELETE a tutor by ID
+    app.delete("/tutors/:id", async (req, res) => {
       try {
-        const email = req.query.email; // ফ্রন্টএন্ড থেকে ?email=admin@tutionbazaar.com পাঠাবি
-
-        // এডমিন কিনা চেক করা
-        const user = await usersCollection.findOne({ email });
-        if (!user || user.role !== "admin") {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
           return res
-            .status(403)
-            .send({ success: false, message: "Admin access required" });
+            .status(400)
+            .send({ success: false, message: "Invalid ID" });
         }
-
-        const tuitions = await tuitionsCollection
-          .find({ status: "Pending" })
-          .sort({ postedAt: -1 })
-          .toArray();
-
-        res.send({ success: true, data: tuitions });
+        const result = await tutorsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount === 0) {
+          return res
+            .status(404)
+            .send({ success: false, message: "Tutor not found" });
+        }
+        res.send({ success: true, deletedCount: result.deletedCount });
       } catch (err) {
         console.error(err);
         res.status(500).send({ success: false, message: "Server error" });
       }
     });
 
-    // Approve (JWT ছাড়া)
-    app.patch("/tuitions/:id/approve", async (req, res) => {
-      try {
-        const email = req.body.email; // ফ্রন্টএন্ড থেকে email পাঠাবি
-        const user = await usersCollection.findOne({ email });
-        if (!user || user.role !== "admin") {
-          return res
-            .status(403)
-            .send({ success: false, message: "Admin only" });
-        }
+    // Approve
+    app.patch("/tutor/:id/approve", async (req, res) => {
+      const { id } = req.params;
+      const { email } = req.body;
+      const user = await userColl.findOne({ email });
+      if (!user || user.role !== "admin")
+        return res.status(403).send({ success: false, message: "Admin only" });
 
-        const result = await tuitionsCollection.updateOne(
-          { _id: new ObjectId(req.params.id) },
-          { $set: { status: "Approved", approvedAt: new Date() } }
-        );
+      const result = await tutorsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "Approved", approvedAt: new Date() } }
+      );
 
-        if (result.modifiedCount === 0) {
-          return res.status(404).send({ success: false, message: "Not found" });
-        }
-
-        res.send({ success: true, message: "Approved" });
-      } catch (err) {
-        res.status(500).send({ success: false });
-      }
+      res.send({ success: result.modifiedCount > 0 });
     });
 
-    // Reject (JWT ছাড়া)
-    app.patch("/tuitions/:id/reject", async (req, res) => {
-      try {
-        const email = req.body.email;
-        const user = await usersCollection.findOne({ email });
-        if (!user || user.role !== "admin") {
-          return res
-            .status(403)
-            .send({ success: false, message: "Admin only" });
-        }
+    // Reject
+    app.patch("/tutor/:id/reject", async (req, res) => {
+      const { id } = req.params;
+      const { email } = req.body;
+      const user = await userColl.findOne({ email });
+      if (!user || user.role !== "admin")
+        return res.status(403).send({ success: false, message: "Admin only" });
 
-        const result = await tuitionsCollection.updateOne(
-          { _id: new ObjectId(req.params.id) },
-          { $set: { status: "Rejected" } }
-        );
+      const result = await tutorsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "Rejected" } }
+      );
 
-        res.send({ success: result.modifiedCount > 0 });
-      } catch (err) {
-        res.status(500).send({ success: false });
-      }
+      res.send({ success: result.modifiedCount > 0 });
     });
 
     // Send a ping to confirm a successful connection
