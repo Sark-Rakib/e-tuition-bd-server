@@ -117,6 +117,26 @@ async function run() {
       res.send(tuition);
     });
 
+    // update
+
+    app.put("/tuitions/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      try {
+        const result = await tuitionsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "Tuition not found" });
+        }
+        res.send({ success: true, modifiedCount: result.modifiedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error", error: err.message });
+      }
+    });
+
     // DELETE a tuition by ID
     app.delete("/tuitions/:id", async (req, res) => {
       try {
