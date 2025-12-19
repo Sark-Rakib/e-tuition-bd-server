@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+// const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+
 const app = express();
 
 const port = process.env.PORT || 4000;
@@ -26,6 +29,7 @@ async function run() {
     const db = client.db("e-tution-bd");
     const tuitionsCollection = db.collection("tuitions");
     const tutorsCollection = db.collection("tutors");
+    const applicationColl = db.collection("applications");
     const userColl = db.collection("users");
     const paymentColl = db.collection("payments");
 
@@ -281,6 +285,38 @@ async function run() {
       }
     });
 
+    // payment api
+
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      const amount = parseInt(paymentInfo.expectedSalary) * 100;
+
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+            price_data: {
+              currency: "USD",
+              unit_amount: amount,
+              product_data: {
+                name: paymentInfo.tutorName,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        customer_email: paymentInfo.tutorEmail,
+        metadata: {
+          tutorId: paymentInfo.tutorId,
+        },
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-history`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-history`,
+      });
+      console.log(session);
+      res.send({ url: session.url });
+    });
+
     // tutor update
 
     app.put("/tutors/:id", async (req, res) => {
@@ -333,28 +369,28 @@ async function run() {
       res.send({ success: result.modifiedCount > 0 });
     });
 
-    // my application
+    // // my application
 
-    app.get("/application", async (req, res) => {
-      try {
-        const email = req.query.email;
+    // app.get("/application", async (req, res) => {
+    //   try {
+    //     const email = req.query.email;
 
-        // শুধু নিজে এর ডেটা fetch করবে
-        if (!email || email !== req.decoded_email) {
-          return res.status(403).send({ message: "Forbidden access" });
-        }
+    //     // শুধু নিজে এর ডেটা fetch করবে
+    //     if (!email || email !== req.decoded_email) {
+    //       return res.status(403).send({ message: "Forbidden access" });
+    //     }
 
-        const applications = await applicationColl
-          .find({ email })
-          .sort({ createdAt: -1 })
-          .toArray();
+    //     const applications = await tutorsCollection
+    //       .find({ email })
+    //       .sort({ createdAt: -1 })
+    //       .toArray();
 
-        res.send(applications);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Server error", error: err.message });
-      }
-    });
+    //     res.send(applications);
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.status(500).send({ message: "Server error", error: err.message });
+    //   }
+    // });
 
     // email get
 
