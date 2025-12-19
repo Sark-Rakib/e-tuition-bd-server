@@ -310,7 +310,7 @@ async function run() {
         metadata: {
           tutorId: paymentInfo.tutorId,
         },
-        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-history`,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment`,
         cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-history`,
       });
       console.log(session);
@@ -368,29 +368,6 @@ async function run() {
 
       res.send({ success: result.modifiedCount > 0 });
     });
-
-    // // my application
-
-    // app.get("/application", async (req, res) => {
-    //   try {
-    //     const email = req.query.email;
-
-    //     // শুধু নিজে এর ডেটা fetch করবে
-    //     if (!email || email !== req.decoded_email) {
-    //       return res.status(403).send({ message: "Forbidden access" });
-    //     }
-
-    //     const applications = await tutorsCollection
-    //       .find({ email })
-    //       .sort({ createdAt: -1 })
-    //       .toArray();
-
-    //     res.send(applications);
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.status(500).send({ message: "Server error", error: err.message });
-    //   }
-    // });
 
     // email get
 
