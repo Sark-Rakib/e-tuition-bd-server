@@ -194,6 +194,21 @@ async function run() {
       res.send({ success: result.modifiedCount > 0 });
     });
 
+    // email get
+
+    app.get("/tuitions-get", async (req, res) => {
+      const { email } = req.query;
+      let query = {};
+      if (email) {
+        query.studentEmail = email;
+      }
+      const result = await tuitionsCollection
+        .find(query)
+        .sort({ postedAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+
     // Tutor postt
     app.post("/tutors", async (req, res) => {
       const tutorData = req.body;
@@ -266,6 +281,26 @@ async function run() {
       }
     });
 
+    // tutor update
+
+    app.put("/tutors/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      try {
+        const result = await tutorsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData }
+        );
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "Tutor not found" });
+        }
+        res.send({ success: true, modifiedCount: result.modifiedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error", error: err.message });
+      }
+    });
+
     // Approve
     app.patch("/tutor/:id/approve", async (req, res) => {
       const { id } = req.params;
@@ -296,6 +331,44 @@ async function run() {
       );
 
       res.send({ success: result.modifiedCount > 0 });
+    });
+
+    // my application
+
+    app.get("/application", async (req, res) => {
+      try {
+        const email = req.query.email;
+
+        // শুধু নিজে এর ডেটা fetch করবে
+        if (!email || email !== req.decoded_email) {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+
+        const applications = await applicationColl
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(applications);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error", error: err.message });
+      }
+    });
+
+    // email get
+
+    app.get("/applications", async (req, res) => {
+      const { email } = req.query;
+      let query = {};
+      if (email) {
+        query.tutorEmail = email;
+      }
+      const result = await tutorsCollection
+        .find(query)
+        .sort({ postedAt: -1 })
+        .toArray();
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
