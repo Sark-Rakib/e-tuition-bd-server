@@ -311,7 +311,6 @@ async function run() {
           tutorId: paymentInfo.tutorId,
         },
         success_url: `${process.env.SITE_DOMAIN}/dashboard/payment`,
-        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-history`,
       });
       console.log(session);
       res.send({ url: session.url });
