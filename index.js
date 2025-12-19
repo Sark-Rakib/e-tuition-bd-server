@@ -29,7 +29,6 @@ async function run() {
     const db = client.db("e-tution-bd");
     const tuitionsCollection = db.collection("tuitions");
     const tutorsCollection = db.collection("tutors");
-    const applicationColl = db.collection("applications");
     const userColl = db.collection("users");
     const paymentColl = db.collection("payments");
 
@@ -106,6 +105,31 @@ async function run() {
       } catch (error) {
         res.status(500).send({ message: "Error fetching tuitions" });
       }
+    });
+
+    // pagination
+
+    app.get("/tuitions-pagination", async (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 6;
+      const skip = (page - 1) * limit;
+      const status = req.query.status || "Approved";
+
+      const tuitions = await tuitionsCollection
+        .find({ status })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      const total = await tuitionsCollection.countDocuments({ status });
+
+      res.json({
+        tuitions,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        totalTuitions: total,
+      });
     });
 
     // tuition details page
@@ -314,6 +338,36 @@ async function run() {
       });
       console.log(session);
       res.send({ url: session.url });
+    });
+
+    // post payment
+
+    app.post("/payments-test", async (req, res) => {
+      const { tutorId, tutorName, tutorEmail, amount } = req.body;
+      const result = await paymentColl.insertOne({
+        tutorId,
+        tutorName,
+        tutorEmail,
+        amount,
+        status: "Paid",
+        createdAt: new Date(),
+      });
+      res.send(result);
+    });
+
+    // Get all payments
+    app.get("/payments", async (req, res) => {
+      try {
+        const payments = await paymentColl
+          .find()
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(payments);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Error fetching payments", error: err.message });
+      }
     });
 
     // tutor update
