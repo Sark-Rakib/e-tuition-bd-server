@@ -125,15 +125,6 @@ async function run() {
           query.location = { $regex: req.query.location, $options: "i" };
         }
 
-        // Sort option
-        let sortOption = { postedAt: -1 };
-
-        if (req.query.sort === "budget-high") {
-          sortOption = { budget: -1 };
-        } else if (req.query.sort === "budget-low") {
-          sortOption = { budget: 1 };
-        }
-
         const tuitions = await tuitionsCollection
           .find(query)
           .skip(skip)
