@@ -110,26 +110,49 @@ async function run() {
     // pagination
 
     app.get("/tuitions-pagination", async (req, res) => {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 6;
-      const skip = (page - 1) * limit;
-      const status = req.query.status || "Approved";
+      try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 6;
+        const skip = (page - 1) * limit;
+        const status = req.query.status || "Approved";
 
-      const tuitions = await tuitionsCollection
-        .find({ status })
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 })
-        .toArray();
+        let query = { status: status };
 
-      const total = await tuitionsCollection.countDocuments({ status });
+        if (req.query.subject) {
+          query.subject = { $regex: req.query.subject, $options: "i" };
+        }
+        if (req.query.location) {
+          query.location = { $regex: req.query.location, $options: "i" };
+        }
 
-      res.json({
-        tuitions,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        totalTuitions: total,
-      });
+        // Sort option
+        let sortOption = { postedAt: -1 };
+
+        if (req.query.sort === "budget-high") {
+          sortOption = { budget: -1 };
+        } else if (req.query.sort === "budget-low") {
+          sortOption = { budget: 1 };
+        }
+
+        const tuitions = await tuitionsCollection
+          .find(query)
+          .skip(skip)
+          .limit(limit)
+          .sort(sortOption)
+          .toArray();
+
+        const totalTuitions = await tuitionsCollection.countDocuments(query);
+
+        res.json({
+          tuitions,
+          totalPages: Math.ceil(totalTuitions / limit),
+          currentPage: page,
+          totalTuitions,
+        });
+      } catch (error) {
+        console.error("Error in /tuitions:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+      }
     });
 
     // tuition details page
